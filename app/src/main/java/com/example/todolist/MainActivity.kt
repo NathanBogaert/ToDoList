@@ -27,6 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -52,8 +53,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
@@ -110,11 +113,13 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Card(
                             onClick = { showSortingDialog.value = !showSortingDialog.value },
-                            modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp)
+                            modifier = Modifier
+                                .padding(horizontal = 15.dp, vertical = 8.dp)
                                 .width(IntrinsicSize.Max)
                         ) {
                             Text(text = "Sort by: ${comparatorName.value}", modifier = Modifier.padding(10.dp))
                             if (showSortingDialog.value) {
+                                Divider(color = Color.Gray)
                                 SortingDropDownMenu(
                                     expanded = showSortingDialog,
                                     comparatorName = comparatorName
@@ -139,7 +144,7 @@ class MainActivity : ComponentActivity() {
 }
 
 private val nameComparator = Comparator<TaskInfo> { left, right ->
-    left.name.compareTo(right.name)
+    left.name.toLowerCase(Locale.current).compareTo(right.name.toLowerCase(Locale.current))
 }
 private val doneComparator = Comparator<TaskInfo> { left, right ->
     left.isDone.value.compareTo(right.isDone.value)
@@ -270,20 +275,24 @@ fun SortingDropDownMenu(
     if (expanded.value) {
         Text(
             text = "Name",
-            modifier = Modifier.clickable {
-                onComparatorSelected(nameComparator)
-                comparatorName.value = "Name"
-                expanded.value = !expanded.value
-            }.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier
+                .clickable {
+                    onComparatorSelected(nameComparator)
+                    comparatorName.value = "Name"
+                    expanded.value = !expanded.value
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth()
         )
         Text(
             text = "Done",
-            modifier = Modifier.clickable {
-                onComparatorSelected(doneComparator)
-                comparatorName.value = "Done"
-                expanded.value = !expanded.value
-            }.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier
+                .clickable {
+                    onComparatorSelected(doneComparator)
+                    comparatorName.value = "Done"
+                    expanded.value = !expanded.value
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth()
         )
     }
