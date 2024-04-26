@@ -17,7 +17,7 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
@@ -27,6 +27,7 @@ import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Card
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.Checkbox
+import androidx.compose.material3.Divider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
@@ -45,6 +46,7 @@ import androidx.compose.runtime.mutableStateListOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.runtime.toMutableStateList
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
@@ -52,8 +54,10 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.rememberVectorPainter
 import androidx.compose.ui.text.TextStyle
+import androidx.compose.ui.text.intl.Locale
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextDecoration
+import androidx.compose.ui.text.toLowerCase
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.example.todolist.ui.theme.ToDoListTheme
@@ -70,11 +74,21 @@ class MainActivity : ComponentActivity() {
                 var comparator by remember { mutableStateOf(nameComparator) }
                 val comparatorName = remember { mutableStateOf("Name") }
 
-                val taskList = remember { mutableStateListOf(
+                val taskList = remember { listOf(
                     TaskInfo("Task 1"),
                     TaskInfo("ALO", "Small description"),
                     TaskInfo("Task 3", "Long description. Lorem ipsum dolor sit amet, consectetur adipiscing elit. Sed tincidunt blandit nunc ac ultricies. Nunc congue orci vitae tincidunt maximus. Morbi pellentesque, dui non dapibus consequat, lectus lacus hendrerit eros, id dictum sapien nisl nec risus. Sed vel posuere ipsum, at bibendum tortor. Nullam commodo feugiat enim eget scelerisque. Etiam maximus est at erat vulputate facilisis. Nunc id vehicula purus. Phasellus ut diam sapien. Vestibulum sollicitudin risus arcu. Donec orci lacus, tempus vestibulum aliquet a, tempus vel purus. Maecenas dapibus sodales turpis, at vulputate purus malesuada ac. ")
-                ) }
+                    )
+                }
+
+                var sortedList = remember {
+                    taskList.sortedWith(comparator).toMutableStateList()
+                }
+
+                LaunchedEffect(key1 = comparator) {
+                    println("NB")
+                    sortedList = sortedList.sortedWith(comparator).toMutableStateList()
+                }
 
                 Scaffold(
                     topBar = {
@@ -102,7 +116,7 @@ class MainActivity : ComponentActivity() {
                 ) {
                     if (showCreateDialog.value) {
                         Card {
-                            AlertCreateTask(taskList, showCreateDialog) {}
+                            AlertCreateTask(sortedList = sortedList, showAlertDialog = showCreateDialog) {}
                         }
                     }
                     Column(
@@ -110,7 +124,8 @@ class MainActivity : ComponentActivity() {
                     ) {
                         Card(
                             onClick = { showSortingDialog.value = !showSortingDialog.value },
-                            modifier = Modifier.padding(horizontal = 15.dp, vertical = 8.dp)
+                            modifier = Modifier
+                                .padding(horizontal = 15.dp, vertical = 8.dp)
                                 .width(IntrinsicSize.Max)
                         ) {
                             Text(text = "Sort by: ${comparatorName.value}", modifier = Modifier.padding(10.dp))
@@ -126,9 +141,12 @@ class MainActivity : ComponentActivity() {
                         LazyColumn(
                             state = rememberLazyListState()
                         ) {
-                            val sortedList = mutableStateOf(taskList.sortedWith(comparator))
-                            items(sortedList.value) { task ->
-                                Task(task, onDeleteTask = { taskList.remove(task) })
+                            itemsIndexed(sortedList) { index, task ->
+                                Task(
+                                    task,
+                                    onDeleteTask = { sortedList.remove(task) },
+                                    onUpdateTask = { sortedList[index] = sortedList[index].copy(isDone = !task.isDone) }
+                                )
                             }
                         }
                     }
@@ -139,20 +157,20 @@ class MainActivity : ComponentActivity() {
 }
 
 private val nameComparator = Comparator<TaskInfo> { left, right ->
-    left.name.compareTo(right.name)
+    left.name.toLowerCase(Locale.current).compareTo(right.name.toLowerCase(Locale.current))
 }
 private val doneComparator = Comparator<TaskInfo> { left, right ->
-    left.isDone.value.compareTo(right.isDone.value)
+    left.isDone.compareTo(right.isDone)
 }
 
 data class TaskInfo(
     var name: String,
     var description: String? = null,
-    var isDone: MutableState<Boolean> = mutableStateOf(false)
+    var isDone: Boolean = false
 )
 
 @Composable
-fun Task(taskInfo: TaskInfo, onDeleteTask: () -> Unit) {
+fun Task(taskInfo: TaskInfo, onDeleteTask: () -> Unit, onUpdateTask: () -> Unit) {
     Row(
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween,
@@ -170,12 +188,12 @@ fun Task(taskInfo: TaskInfo, onDeleteTask: () -> Unit) {
                 Text(
                     text = taskInfo.name,
                     style = TextStyle(
-                        textDecoration = if (taskInfo.isDone.value) TextDecoration.LineThrough else TextDecoration.None
+                        textDecoration = if (taskInfo.isDone) TextDecoration.LineThrough else TextDecoration.None
                     ),
                     fontSize = 20.sp,
                     modifier = Modifier.weight(1f)
                 )
-                Checkbox(checked = taskInfo.isDone.value, onCheckedChange = { taskInfo.isDone.value = it })
+                Checkbox(checked = taskInfo.isDone, onCheckedChange = { onUpdateTask() })
                 IconButton(onClick = { onDeleteTask() }) {
                     Icon(
                         painter = rememberVectorPainter(image = Icons.Default.Delete),
@@ -184,7 +202,7 @@ fun Task(taskInfo: TaskInfo, onDeleteTask: () -> Unit) {
                 }
             }
             if (!taskInfo.description.isNullOrBlank()) {
-                if (!taskInfo.isDone.value) {
+                if (!taskInfo.isDone) {
                     Text(
                         text = taskInfo.description!!,
                         modifier = Modifier.padding(vertical = 5.dp)
@@ -197,10 +215,10 @@ fun Task(taskInfo: TaskInfo, onDeleteTask: () -> Unit) {
 
 @Composable
 fun AlertCreateTask(
-    taskList: MutableList<TaskInfo>,
+    sortedList: MutableList<TaskInfo>,
     showAlertDialog: MutableState<Boolean>,
-    onDismiss: () -> Unit)
-{
+    onDismiss: () -> Unit
+) {
     val inputName = remember { mutableStateOf("") }
     val inputNameMaxLength = 40
     val inputDescriptionMaxLength = 254
@@ -242,7 +260,7 @@ fun AlertCreateTask(
         },
         confirmButton = {
             TextButton(onClick = {
-                taskList.add(TaskInfo(inputName.value, if (inputDescription.value == "") null else inputDescription.value))
+                sortedList.add(TaskInfo(inputName.value, if (inputDescription.value == "") null else inputDescription.value))
                 showAlertDialog.value = false
             }) {
                 Text("Create")
@@ -268,22 +286,27 @@ fun SortingDropDownMenu(
     onComparatorSelected: (Comparator<TaskInfo>) -> Unit
 ) {
     if (expanded.value) {
+        Divider(color = Color.Gray)
         Text(
             text = "Name",
-            modifier = Modifier.clickable {
-                onComparatorSelected(nameComparator)
-                comparatorName.value = "Name"
-                expanded.value = !expanded.value
-            }.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier
+                .clickable {
+                    onComparatorSelected(nameComparator)
+                    comparatorName.value = "Name"
+                    expanded.value = !expanded.value
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth()
         )
         Text(
             text = "Done",
-            modifier = Modifier.clickable {
-                onComparatorSelected(doneComparator)
-                comparatorName.value = "Done"
-                expanded.value = !expanded.value
-            }.padding(horizontal = 10.dp, vertical = 5.dp)
+            modifier = Modifier
+                .clickable {
+                    onComparatorSelected(doneComparator)
+                    comparatorName.value = "Done"
+                    expanded.value = !expanded.value
+                }
+                .padding(horizontal = 10.dp, vertical = 8.dp)
                 .fillMaxWidth()
         )
     }
